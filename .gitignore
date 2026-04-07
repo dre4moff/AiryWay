@@ -1,0 +1,10 @@
+.DS_Store
+build_unsigned_ipa/
+AiryWayApp/build/
+AiryWayApp/DerivedData/
+AiryWayApp/.build/
+AiryWayApp/**/xcuserdata/
+AiryWayApp/**/.DS_Store
+AiryWayImage.png
+AiryWayApp/llama-b8679-xcframework.zip
+AiryWayApp/AiryWayApp/Vendor/llama/build-apple/llama.xcframework/**/dSYMs/

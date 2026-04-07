@@ -1,0 +1,449 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 56;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		84DDA49B2F84990800F855C8 /* AiryWay_icon.icon in Resources */ = {isa = PBXBuildFile; fileRef = 84DDA49A2F84990800F855C8 /* AiryWay_icon.icon */; };
+		A001 /* LocalWebPilotApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = F001 /* LocalWebPilotApp.swift */; };
+		A002 /* RootTabView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F002 /* RootTabView.swift */; };
+		A003 /* BrowserStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = F003 /* BrowserStore.swift */; };
+		A004 /* URLInputNormalizer.swift in Sources */ = {isa = PBXBuildFile; fileRef = F004 /* URLInputNormalizer.swift */; };
+		A005 /* WebPageFetcher.swift in Sources */ = {isa = PBXBuildFile; fileRef = F005 /* WebPageFetcher.swift */; };
+		A006 /* HTMLTextExtractor.swift in Sources */ = {isa = PBXBuildFile; fileRef = F006 /* HTMLTextExtractor.swift */; };
+		A007 /* LocalLLMEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = F007 /* LocalLLMEngine.swift */; };
+		A008 /* AgentOrchestrator.swift in Sources */ = {isa = PBXBuildFile; fileRef = F008 /* AgentOrchestrator.swift */; };
+		A009 /* BrowserScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = F009 /* BrowserScreen.swift */; };
+		A010 /* WebViewRepresentable.swift in Sources */ = {isa = PBXBuildFile; fileRef = F010 /* WebViewRepresentable.swift */; };
+		A011 /* ReaderViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = F011 /* ReaderViewModel.swift */; };
+		A012 /* ReaderScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = F012 /* ReaderScreen.swift */; };
+		A013 /* ChatMessage.swift in Sources */ = {isa = PBXBuildFile; fileRef = F013 /* ChatMessage.swift */; };
+		A014 /* ChatViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = F014 /* ChatViewModel.swift */; };
+		A015 /* ChatScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = F015 /* ChatScreen.swift */; };
+		A016 /* SettingsStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = F016 /* SettingsStore.swift */; };
+			A017 /* SettingsScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = F017 /* SettingsScreen.swift */; };
+			A018 /* llama/build-apple/llama.xcframework in Frameworks */ = {isa = PBXBuildFile; fileRef = F021 /* llama/build-apple/llama.xcframework */; };
+			A019 /* ChatConversation.swift in Sources */ = {isa = PBXBuildFile; fileRef = F022 /* ChatConversation.swift */; };
+			A020 /* llama/build-apple/llama.xcframework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = F021 /* llama/build-apple/llama.xcframework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
+/* End PBXBuildFile section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+			B004 /* Embed Frameworks */ = {
+				isa = PBXCopyFilesBuildPhase;
+				buildActionMask = 2147483647;
+				dstPath = "";
+				dstSubfolderSpec = 10;
+				files = (
+					A020 /* llama/build-apple/llama.xcframework in Embed Frameworks */,
+				);
+				name = "Embed Frameworks";
+				runOnlyForDeploymentPostprocessing = 0;
+			};
+/* End PBXCopyFilesBuildPhase section */
+
+/* Begin PBXFileReference section */
+		84DDA49A2F84990800F855C8 /* AiryWay_icon.icon */ = {isa = PBXFileReference; lastKnownFileType = folder.iconcomposer.icon; path = AiryWay_icon.icon; sourceTree = "<group>"; };
+		F001 /* LocalWebPilotApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalWebPilotApp.swift; sourceTree = "<group>"; };
+		F002 /* RootTabView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RootTabView.swift; sourceTree = "<group>"; };
+		F003 /* BrowserStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BrowserStore.swift; sourceTree = "<group>"; };
+		F004 /* URLInputNormalizer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = URLInputNormalizer.swift; sourceTree = "<group>"; };
+		F005 /* WebPageFetcher.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WebPageFetcher.swift; sourceTree = "<group>"; };
+		F006 /* HTMLTextExtractor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HTMLTextExtractor.swift; sourceTree = "<group>"; };
+		F007 /* LocalLLMEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalLLMEngine.swift; sourceTree = "<group>"; };
+		F008 /* AgentOrchestrator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AgentOrchestrator.swift; sourceTree = "<group>"; };
+		F009 /* BrowserScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BrowserScreen.swift; sourceTree = "<group>"; };
+		F010 /* WebViewRepresentable.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WebViewRepresentable.swift; sourceTree = "<group>"; };
+		F011 /* ReaderViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReaderViewModel.swift; sourceTree = "<group>"; };
+		F012 /* ReaderScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReaderScreen.swift; sourceTree = "<group>"; };
+		F013 /* ChatMessage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatMessage.swift; sourceTree = "<group>"; };
+		F014 /* ChatViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatViewModel.swift; sourceTree = "<group>"; };
+		F015 /* ChatScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatScreen.swift; sourceTree = "<group>"; };
+		F016 /* SettingsStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsStore.swift; sourceTree = "<group>"; };
+		F017 /* SettingsScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsScreen.swift; sourceTree = "<group>"; };
+		F018 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		F019 /* README_IT.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = README_IT.md; sourceTree = SOURCE_ROOT; };
+		F020 /* CODEX_BRIEF.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = CODEX_BRIEF.md; sourceTree = SOURCE_ROOT; };
+		F021 /* llama/build-apple/llama.xcframework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.xcframework; path = "llama/build-apple/llama.xcframework"; sourceTree = "<group>"; };
+		F022 /* ChatConversation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatConversation.swift; sourceTree = "<group>"; };
+		P001 /* AiryWay.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = AiryWay.app; sourceTree = BUILT_PRODUCTS_DIR; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		B001 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				A018 /* llama/build-apple/llama.xcframework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		G000 = {
+			isa = PBXGroup;
+			children = (
+				G001 /* AiryWayApp */,
+				G100 /* Docs */,
+				G900 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		G001 /* AiryWayApp */ = {
+			isa = PBXGroup;
+			children = (
+				G010 /* App */,
+				G020 /* Core */,
+				G030 /* Features */,
+				G040 /* Models */,
+				G050 /* Resources */,
+				G060 /* Vendor */,
+				84DDA49A2F84990800F855C8 /* AiryWay_icon.icon */,
+			);
+			path = AiryWayApp;
+			sourceTree = "<group>";
+		};
+		G010 /* App */ = {
+			isa = PBXGroup;
+			children = (
+				F001 /* LocalWebPilotApp.swift */,
+				F002 /* RootTabView.swift */,
+			);
+			path = App;
+			sourceTree = "<group>";
+		};
+		G020 /* Core */ = {
+			isa = PBXGroup;
+			children = (
+				F003 /* BrowserStore.swift */,
+				F004 /* URLInputNormalizer.swift */,
+				F005 /* WebPageFetcher.swift */,
+				F006 /* HTMLTextExtractor.swift */,
+				F007 /* LocalLLMEngine.swift */,
+				F008 /* AgentOrchestrator.swift */,
+			);
+			path = Core;
+			sourceTree = "<group>";
+		};
+		G030 /* Features */ = {
+			isa = PBXGroup;
+			children = (
+				G031 /* Browser */,
+				G032 /* Reader */,
+				G033 /* Chat */,
+				G034 /* Settings */,
+			);
+			path = Features;
+			sourceTree = "<group>";
+		};
+		G031 /* Browser */ = {
+			isa = PBXGroup;
+			children = (
+				F009 /* BrowserScreen.swift */,
+				F010 /* WebViewRepresentable.swift */,
+			);
+			path = Browser;
+			sourceTree = "<group>";
+		};
+		G032 /* Reader */ = {
+			isa = PBXGroup;
+			children = (
+				F011 /* ReaderViewModel.swift */,
+				F012 /* ReaderScreen.swift */,
+			);
+			path = Reader;
+			sourceTree = "<group>";
+		};
+		G033 /* Chat */ = {
+			isa = PBXGroup;
+			children = (
+				F014 /* ChatViewModel.swift */,
+				F015 /* ChatScreen.swift */,
+			);
+			path = Chat;
+			sourceTree = "<group>";
+		};
+		G034 /* Settings */ = {
+			isa = PBXGroup;
+			children = (
+				F016 /* SettingsStore.swift */,
+				F017 /* SettingsScreen.swift */,
+			);
+			path = Settings;
+			sourceTree = "<group>";
+		};
+		G040 /* Models */ = {
+			isa = PBXGroup;
+			children = (
+				F013 /* ChatMessage.swift */,
+				F022 /* ChatConversation.swift */,
+			);
+			path = Models;
+			sourceTree = "<group>";
+		};
+		G050 /* Resources */ = {
+			isa = PBXGroup;
+			children = (
+				F018 /* Info.plist */,
+			);
+			path = Resources;
+			sourceTree = "<group>";
+		};
+		G060 /* Vendor */ = {
+			isa = PBXGroup;
+			children = (
+				F021 /* llama/build-apple/llama.xcframework */,
+			);
+			path = Vendor;
+			sourceTree = "<group>";
+		};
+		G100 /* Docs */ = {
+			isa = PBXGroup;
+			children = (
+				F019 /* README_IT.md */,
+				F020 /* CODEX_BRIEF.md */,
+			);
+			name = Docs;
+			sourceTree = "<group>";
+		};
+		G900 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				P001 /* AiryWay.app */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+			T001 /* LocalWebPilot */ = {
+				isa = PBXNativeTarget;
+				buildConfigurationList = C002 /* Build configuration list for PBXNativeTarget "LocalWebPilot" */;
+				buildPhases = (
+					B002 /* Resources */,
+					B001 /* Frameworks */,
+					B004 /* Embed Frameworks */,
+					B003 /* Sources */,
+				);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = LocalWebPilot;
+			productName = LocalWebPilot;
+			productReference = P001 /* AiryWay.app */;
+			productType = "com.apple.product-type.application";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		PRJ1 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = 1;
+				LastSwiftUpdateCheck = 1600;
+				LastUpgradeCheck = 1600;
+				TargetAttributes = {
+					T001 = {
+						CreatedOnToolsVersion = 16.0;
+					};
+				};
+			};
+			buildConfigurationList = C001 /* Build configuration list for PBXProject "AiryWayApp" */;
+			compatibilityVersion = "Xcode 14.0";
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				en,
+				Base,
+			);
+			mainGroup = G000;
+			productRefGroup = G900 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				T001 /* LocalWebPilot */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		B002 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				84DDA49B2F84990800F855C8 /* AiryWay_icon.icon in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		B003 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				A001 /* LocalWebPilotApp.swift in Sources */,
+				A002 /* RootTabView.swift in Sources */,
+				A003 /* BrowserStore.swift in Sources */,
+				A004 /* URLInputNormalizer.swift in Sources */,
+				A005 /* WebPageFetcher.swift in Sources */,
+				A006 /* HTMLTextExtractor.swift in Sources */,
+				A007 /* LocalLLMEngine.swift in Sources */,
+				A008 /* AgentOrchestrator.swift in Sources */,
+				A009 /* BrowserScreen.swift in Sources */,
+				A010 /* WebViewRepresentable.swift in Sources */,
+				A011 /* ReaderViewModel.swift in Sources */,
+				A012 /* ReaderScreen.swift in Sources */,
+				A013 /* ChatMessage.swift in Sources */,
+				A014 /* ChatViewModel.swift in Sources */,
+				A015 /* ChatScreen.swift in Sources */,
+				A016 /* SettingsStore.swift in Sources */,
+				A017 /* SettingsScreen.swift in Sources */,
+				A019 /* ChatConversation.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin XCBuildConfiguration section */
+		D001 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"$(inherited)",
+				);
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				SDKROOT = iphoneos;
+				SWIFT_VERSION = 5.0;
+			};
+			name = Debug;
+		};
+		D002 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GCC_NO_COMMON_BLOCKS = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				SDKROOT = iphoneos;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_VERSION = 5.0;
+			};
+			name = Release;
+		};
+		D003 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AiryWay_icon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				ASSETCATALOG_COMPILER_INCLUDE_ALL_APPICON_ASSETS = YES;
+				CODE_SIGN_STYLE = Manual;
+				DEVELOPMENT_TEAM = "";
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = AiryWayApp/Resources/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = AiryWay;
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.utilities";
+				IPHONEOS_DEPLOYMENT_TARGET = 18.6;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 0.0.1;
+				PRODUCT_BUNDLE_IDENTIFIER = com.AiryWay.app;
+				PRODUCT_NAME = AiryWay;
+				PROVISIONING_PROFILE_SPECIFIER = "";
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		D004 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AiryWay_icon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				ASSETCATALOG_COMPILER_INCLUDE_ALL_APPICON_ASSETS = YES;
+				CODE_SIGN_STYLE = Manual;
+				DEVELOPMENT_TEAM = "";
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = AiryWayApp/Resources/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = AiryWay;
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.utilities";
+				IPHONEOS_DEPLOYMENT_TARGET = 18.6;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 0.0.1;
+				PRODUCT_BUNDLE_IDENTIFIER = com.AiryWay.app;
+				PRODUCT_NAME = AiryWay;
+				PROVISIONING_PROFILE_SPECIFIER = "";
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		C001 /* Build configuration list for PBXProject "AiryWayApp" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				D001 /* Debug */,
+				D002 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		C002 /* Build configuration list for PBXNativeTarget "LocalWebPilot" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				D003 /* Debug */,
+				D004 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = PRJ1 /* Project object */;
+}
