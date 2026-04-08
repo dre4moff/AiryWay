@@ -74,15 +74,6 @@ struct ChatScreen: View {
                     }
                     .disabled(chatViewModel.debugItems.isEmpty)
                 }
-
-                ToolbarItemGroup(placement: .keyboard) {
-                    Spacer()
-                    Button {
-                        dismissKeyboard()
-                    } label: {
-                        Label("Done", systemImage: "keyboard.chevron.compact.down")
-                    }
-                }
             }
             .sheet(isPresented: $isDebugPresented) {
                 DebugSheet(items: chatViewModel.debugItems)
@@ -229,7 +220,9 @@ struct ChatScreen: View {
     }
 
     private var composerBar: some View {
-        let capabilities = settingsStore.selectedModelCapabilities
+        let rawCapabilities = settingsStore.selectedModelCapabilities
+        let capabilities = settingsStore.effectiveSelectedModelCapabilities
+        let canUseImageInput = capabilities.supportsImageInput
         let hasText = !chatViewModel.inputText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
         let hasAttachments = !chatViewModel.pendingAttachments.isEmpty
         let actionButtonSize: CGFloat = 40
@@ -266,13 +259,19 @@ struct ChatScreen: View {
                         .disabled(true)
                     }
 
-                    if capabilities.supportsImageInput {
+                    if canUseImageInput {
                         Button {
                             dismissKeyboard()
                             isPhotoPickerPresented = true
                         } label: {
                             Label("Carica immagine", systemImage: "photo.on.rectangle")
                         }
+                    } else if rawCapabilities.supportsImageInput {
+                        Button {
+                        } label: {
+                            Label("Carica immagine (Runtime non supportato)", systemImage: "photo")
+                        }
+                        .disabled(true)
                     } else {
                         Button {
                         } label: {

@@ -117,6 +117,7 @@ protocol LocalLLMEngine: AnyObject {
         prompt: String,
         context: String,
         conversation: [ChatMessage],
+        attachments: [ChatAttachmentPayload],
         maxOutputTokens: Int?,
         onToken: @escaping @Sendable (String) -> Void
     ) async throws -> LocalModelResponse
@@ -156,8 +157,11 @@ final class LlamaCppEngine: LocalLLMEngine {
     }
 
     var supportsNativeImageInput: Bool {
-        // Current framework bundle does not include multimodal helpers (llava/mtmd).
-        false
+        #if canImport(llama)
+        return Self.hasNativeImagePipelineIntegration
+        #else
+        return false
+        #endif
     }
 
     func loadModel(at modelURL: URL) async throws {
@@ -246,6 +250,7 @@ final class LlamaCppEngine: LocalLLMEngine {
         prompt: String,
         context: String,
         conversation: [ChatMessage],
+        attachments: [ChatAttachmentPayload],
         maxOutputTokens: Int?,
         onToken: @escaping @Sendable (String) -> Void
     ) async throws -> LocalModelResponse {
@@ -265,6 +270,7 @@ final class LlamaCppEngine: LocalLLMEngine {
             prompt: prompt,
             context: context,
             conversation: conversation,
+            attachments: attachments,
             maxOutputTokens: maxOutputTokens
         )
         let sanitizedText = sanitizeAssistantOutput(fullText)
@@ -296,6 +302,7 @@ final class LlamaCppEngine: LocalLLMEngine {
         prompt: String,
         context: String,
         conversation: [ChatMessage],
+        attachments: [ChatAttachmentPayload],
         maxOutputTokens: Int?
     ) async throws -> String {
 #if canImport(llama)
@@ -303,6 +310,7 @@ final class LlamaCppEngine: LocalLLMEngine {
             prompt: prompt,
             context: context,
             conversation: conversation,
+            attachments: attachments,
             maxOutputTokens: maxOutputTokens
         )
 #else
@@ -315,6 +323,7 @@ final class LlamaCppEngine: LocalLLMEngine {
         prompt: String,
         context: String,
         conversation: [ChatMessage],
+        attachments: [ChatAttachmentPayload],
         maxOutputTokens: Int?
     ) async throws -> String {
         guard let model = llamaModelHandle,
@@ -328,6 +337,11 @@ final class LlamaCppEngine: LocalLLMEngine {
             conversation: conversation,
             model: model
         )
+        let imagePayloads = attachments.compactMap { attachment -> Data? in
+            guard attachment.kind == .image else { return nil }
+            guard let payload = attachment.binaryPayload, !payload.isEmpty else { return nil }
+            return payload
+        }
 
         if let existing = llamaSamplerHandle {
             llama_sampler_free(existing)
@@ -349,84 +363,229 @@ final class LlamaCppEngine: LocalLLMEngine {
             llama_sampler_reset(sampler)
             llama_memory_clear(llama_get_memory(contextHandle), true)
 
-            var promptTokens = try self.tokenize(text: promptText, vocab: vocab)
-            let nCtx = Int(llama_n_ctx(contextHandle))
-            if nCtx > 32 && promptTokens.count >= nCtx - 4 {
-                promptTokens = Array(promptTokens.suffix(nCtx - 4))
-            }
-
-            if promptTokens.isEmpty {
-                throw LocalLLMError.invalidResponse
-            }
-
-            let maxBatchSize = max(1, Int(llama_n_batch(contextHandle)))
-            var cursor = 0
-            while cursor < promptTokens.count {
-                if Task.isCancelled || self.stopRequested {
-                    throw LocalLLMError.generationCancelled
-                }
-
-                let end = min(cursor + maxBatchSize, promptTokens.count)
-                var decodeChunk = Array(promptTokens[cursor..<end])
-                let promptDecodeResult = decodeChunk.withUnsafeMutableBufferPointer { ptr in
-                    let batch = llama_batch_get_one(ptr.baseAddress, Int32(ptr.count))
-                    return llama_decode(contextHandle, batch)
-                }
-                if promptDecodeResult < 0 {
-                    throw LocalLLMError.backend("llama.cpp prompt decode failed (\(promptDecodeResult)) at chunk \(cursor)-\(end).")
-                }
-
-                cursor = end
-            }
-
-            var output = ""
-            let availableContext = max(1, nCtx - promptTokens.count - 8)
-            let maxGeneration: Int
-            if let requested = maxOutputTokens {
-                maxGeneration = max(1, min(requested, availableContext))
+            let consumedPromptTokens: Int
+            if imagePayloads.isEmpty {
+                consumedPromptTokens = try self.decodeTextPrompt(
+                    promptText,
+                    contextHandle: contextHandle,
+                    vocab: vocab
+                )
             } else {
-                maxGeneration = availableContext
+                guard self.supportsNativeImageInput else {
+                    throw LocalLLMError.backend("Image input runtime is not available in this build.")
+                }
+                guard let modelURL = self.loadedModelURL else {
+                    throw LocalLLMError.modelNotLoaded
+                }
+                consumedPromptTokens = try self.decodeMultimodalPrompt(
+                    promptText: promptText,
+                    contextHandle: contextHandle,
+                    modelHandle: model,
+                    modelURL: modelURL,
+                    imagePayloads: imagePayloads
+                )
             }
 
-            for _ in 0..<maxGeneration {
-                if Task.isCancelled || self.stopRequested {
-                    throw LocalLLMError.generationCancelled
-                }
-
-                let token = llama_sampler_sample(sampler, contextHandle, -1)
-                if llama_vocab_is_eog(vocab, token) {
-                    break
-                }
-
-                let piece = self.tokenToPiece(token: token, vocab: vocab)
-                if !piece.isEmpty {
-                    output += piece
-                    if output.count >= 24,
-                       let cutIndex = self.firstDialogueLeakCutIndex(in: output) {
-                        output = String(output[..<cutIndex])
-                        break
-                    }
-                }
-
-                llama_sampler_accept(sampler, token)
-
-                var tokenCopy = token
-                let tokenDecodeResult = withUnsafeMutablePointer(to: &tokenCopy) { ptr in
-                    let batch = llama_batch_get_one(ptr, 1)
-                    return llama_decode(contextHandle, batch)
-                }
-                if tokenDecodeResult < 0 {
-                    throw LocalLLMError.backend("llama.cpp token decode failed (\(tokenDecodeResult)).")
-                }
-            }
-
-            let cleaned = output.trimmingCharacters(in: .whitespacesAndNewlines)
-            if cleaned.isEmpty {
-                throw LocalLLMError.invalidResponse
-            }
-            return cleaned
+            return try self.sampleModelOutput(
+                contextHandle: contextHandle,
+                vocab: vocab,
+                sampler: sampler,
+                consumedPromptTokens: consumedPromptTokens,
+                maxOutputTokens: maxOutputTokens
+            )
         }
         return try await task.value
+    }
+
+    private func decodeTextPrompt(
+        _ promptText: String,
+        contextHandle: OpaquePointer,
+        vocab: OpaquePointer
+    ) throws -> Int {
+        var promptTokens = try tokenize(text: promptText, vocab: vocab)
+        let nCtx = Int(llama_n_ctx(contextHandle))
+        if nCtx > 32 && promptTokens.count >= nCtx - 4 {
+            promptTokens = Array(promptTokens.suffix(nCtx - 4))
+        }
+
+        if promptTokens.isEmpty {
+            throw LocalLLMError.invalidResponse
+        }
+
+        let maxBatchSize = max(1, Int(llama_n_batch(contextHandle)))
+        var cursor = 0
+        while cursor < promptTokens.count {
+            if Task.isCancelled || stopRequested {
+                throw LocalLLMError.generationCancelled
+            }
+
+            let end = min(cursor + maxBatchSize, promptTokens.count)
+            var decodeChunk = Array(promptTokens[cursor..<end])
+            let promptDecodeResult = decodeChunk.withUnsafeMutableBufferPointer { ptr in
+                let batch = llama_batch_get_one(ptr.baseAddress, Int32(ptr.count))
+                return llama_decode(contextHandle, batch)
+            }
+            if promptDecodeResult < 0 {
+                throw LocalLLMError.backend("llama.cpp prompt decode failed (\(promptDecodeResult)) at chunk \(cursor)-\(end).")
+            }
+
+            cursor = end
+        }
+
+        return promptTokens.count
+    }
+
+    private func decodeMultimodalPrompt(
+        promptText: String,
+        contextHandle: OpaquePointer,
+        modelHandle: OpaquePointer,
+        modelURL: URL,
+        imagePayloads: [Data]
+    ) throws -> Int {
+        guard let mmprojURL = resolveMMProjURL(for: modelURL) else {
+            throw LocalLLMError.backend(
+                "Missing mmproj sidecar for this vision model. Download/import the corresponding mmproj GGUF in the Models tab."
+            )
+        }
+
+        var mtmdParams = mtmd_context_params_default()
+        mtmdParams.use_gpu = activeComputeBackend == .gpuMetal
+        mtmdParams.print_timings = false
+        mtmdParams.n_threads = Int32(max(2, ProcessInfo.processInfo.processorCount - 1))
+        mtmdParams.warmup = false
+
+        let mtmdContext = mmprojURL.path.withCString { cPath in
+            mtmd_init_from_file(cPath, modelHandle, mtmdParams)
+        }
+        guard let mtmdContext else {
+            throw LocalLLMError.backend("mtmd failed to initialize with mmproj '\(mmprojURL.lastPathComponent)'.")
+        }
+        defer { mtmd_free(mtmdContext) }
+
+        guard mtmd_support_vision(mtmdContext) else {
+            throw LocalLLMError.backend("Selected model does not expose native image support at runtime.")
+        }
+
+        let marker = mtmd_default_marker().map { String(cString: $0) } ?? "<__media__>"
+        let mediaPrompt = normalizedMediaPrompt(
+            promptText: promptText,
+            marker: marker,
+            expectedMarkerCount: imagePayloads.count
+        )
+
+        var bitmaps: [OpaquePointer?] = []
+        bitmaps.reserveCapacity(imagePayloads.count)
+
+        for payload in imagePayloads {
+            if Task.isCancelled || stopRequested {
+                throw LocalLLMError.generationCancelled
+            }
+            let bitmap = payload.withUnsafeBytes { rawBuffer -> OpaquePointer? in
+                let bytes = rawBuffer.bindMemory(to: UInt8.self)
+                guard let baseAddress = bytes.baseAddress else { return nil }
+                return mtmd_helper_bitmap_init_from_buf(mtmdContext, baseAddress, bytes.count)
+            }
+            guard let bitmap else {
+                throw LocalLLMError.backend("Failed to parse one of the attached images.")
+            }
+            bitmaps.append(bitmap)
+        }
+
+        defer {
+            for bitmap in bitmaps {
+                mtmd_bitmap_free(bitmap)
+            }
+        }
+
+        guard let chunks = mtmd_input_chunks_init() else {
+            throw LocalLLMError.backend("mtmd failed to allocate input chunks.")
+        }
+        defer { mtmd_input_chunks_free(chunks) }
+
+        let tokenizeStatus: Int32 = mediaPrompt.withCString { cPrompt in
+            var inputText = mtmd_input_text(text: cPrompt, add_special: true, parse_special: true)
+            return bitmaps.withUnsafeMutableBufferPointer { buffer in
+                mtmd_tokenize(mtmdContext, chunks, &inputText, buffer.baseAddress, buffer.count)
+            }
+        }
+        guard tokenizeStatus == 0 else {
+            throw LocalLLMError.backend("mtmd tokenization failed (\(tokenizeStatus)).")
+        }
+
+        var nPast: llama_pos = 0
+        let evalStatus = mtmd_helper_eval_chunks(
+            mtmdContext,
+            contextHandle,
+            chunks,
+            0,
+            0,
+            Int32(max(1, Int(llama_n_batch(contextHandle)))),
+            true,
+            &nPast
+        )
+        guard evalStatus == 0 else {
+            throw LocalLLMError.backend("mtmd evaluation failed (\(evalStatus)).")
+        }
+
+        let helperTokenCount = mtmd_helper_get_n_tokens(chunks)
+        return max(max(Int(nPast), helperTokenCount), 1)
+    }
+
+    private func sampleModelOutput(
+        contextHandle: OpaquePointer,
+        vocab: OpaquePointer,
+        sampler: UnsafeMutablePointer<llama_sampler>,
+        consumedPromptTokens: Int,
+        maxOutputTokens: Int?
+    ) throws -> String {
+        var output = ""
+        let nCtx = Int(llama_n_ctx(contextHandle))
+        let usedContext = min(max(0, consumedPromptTokens), max(1, nCtx - 1))
+        let availableContext = max(1, nCtx - usedContext - 8)
+        let maxGeneration: Int
+        if let requested = maxOutputTokens {
+            maxGeneration = max(1, min(requested, availableContext))
+        } else {
+            maxGeneration = availableContext
+        }
+
+        for _ in 0..<maxGeneration {
+            if Task.isCancelled || stopRequested {
+                throw LocalLLMError.generationCancelled
+            }
+
+            let token = llama_sampler_sample(sampler, contextHandle, -1)
+            if llama_vocab_is_eog(vocab, token) {
+                break
+            }
+
+            let piece = tokenToPiece(token: token, vocab: vocab)
+            if !piece.isEmpty {
+                output += piece
+                if output.count >= 24,
+                   let cutIndex = firstDialogueLeakCutIndex(in: output) {
+                    output = String(output[..<cutIndex])
+                    break
+                }
+            }
+
+            llama_sampler_accept(sampler, token)
+
+            var tokenCopy = token
+            let tokenDecodeResult = withUnsafeMutablePointer(to: &tokenCopy) { ptr in
+                let batch = llama_batch_get_one(ptr, 1)
+                return llama_decode(contextHandle, batch)
+            }
+            if tokenDecodeResult < 0 {
+                throw LocalLLMError.backend("llama.cpp token decode failed (\(tokenDecodeResult)).")
+            }
+        }
+
+        let cleaned = output.trimmingCharacters(in: .whitespacesAndNewlines)
+        if cleaned.isEmpty {
+            throw LocalLLMError.invalidResponse
+        }
+        return cleaned
     }
 
     private func initializeBackendIfNeeded() {
@@ -434,6 +593,9 @@ final class LlamaCppEngine: LocalLLMEngine {
         llama_backend_init()
         Self.isBackendInitialized = true
     }
+
+    // Native multimodal image tokens are wired end-to-end.
+    private static let hasNativeImagePipelineIntegration = true
 
     private func makeSampler(seed: UInt32) -> UnsafeMutablePointer<llama_sampler>? {
         let chainParams = llama_sampler_chain_default_params()
@@ -489,6 +651,107 @@ final class LlamaCppEngine: LocalLLMEngine {
             }
             #endif
         }
+    }
+
+    private func normalizedMediaPrompt(
+        promptText: String,
+        marker: String,
+        expectedMarkerCount: Int
+    ) -> String {
+        let normalizedMarker = marker.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !normalizedMarker.isEmpty, expectedMarkerCount > 0 else {
+            return promptText
+        }
+
+        let existingMarkerCount = promptText.components(separatedBy: normalizedMarker).count - 1
+        if existingMarkerCount == expectedMarkerCount {
+            return promptText
+        }
+
+        if existingMarkerCount > expectedMarkerCount {
+            return promptText
+        }
+
+        let missingCount = expectedMarkerCount - existingMarkerCount
+        let suffix = Array(repeating: normalizedMarker, count: missingCount).joined(separator: "\n")
+
+        if promptText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            return suffix
+        }
+        return "\(promptText)\n\n\(suffix)"
+    }
+
+    private func resolveMMProjURL(for modelURL: URL) -> URL? {
+        let directory = modelURL.deletingLastPathComponent()
+        let modelStem = modelURL.deletingPathExtension().lastPathComponent.lowercased()
+
+        let explicitCandidates = [
+            "mmproj-\(modelStem).gguf",
+            "\(modelStem)-mmproj.gguf",
+            "\(modelStem).mmproj.gguf",
+            "mmproj.gguf"
+        ]
+
+        for candidate in explicitCandidates {
+            let url = directory.appendingPathComponent(candidate)
+            if FileManager.default.fileExists(atPath: url.path) {
+                return url
+            }
+        }
+
+        guard let allFiles = try? FileManager.default.contentsOfDirectory(
+            at: directory,
+            includingPropertiesForKeys: nil,
+            options: [.skipsHiddenFiles]
+        ) else {
+            return nil
+        }
+
+        let mmprojFiles = allFiles.filter { url in
+            let name = url.lastPathComponent.lowercased()
+            return name.hasSuffix(".gguf") && name.contains("mmproj")
+        }
+        if mmprojFiles.isEmpty {
+            return nil
+        }
+        if mmprojFiles.count == 1 {
+            return mmprojFiles[0]
+        }
+
+        let modelFamilyTokens = familyTokens(forModelStem: modelStem)
+        let scored = mmprojFiles.map { url -> (URL, Int, Bool) in
+            let stem = url.deletingPathExtension().lastPathComponent.lowercased()
+            let score = modelFamilyTokens.reduce(0) { partial, token in
+                partial + (stem.contains(token) ? 1 : 0)
+            }
+            let prefersF16 = stem.contains("f16")
+            return (url, score, prefersF16)
+        }
+        .sorted { lhs, rhs in
+            if lhs.1 == rhs.1 {
+                if lhs.2 == rhs.2 {
+                    return lhs.0.lastPathComponent < rhs.0.lastPathComponent
+                }
+                return lhs.2 && !rhs.2
+            }
+            return lhs.1 > rhs.1
+        }
+
+        return scored.first?.0
+    }
+
+    private func familyTokens(forModelStem modelStem: String) -> [String] {
+        let parts = modelStem.split { character in
+            character == "-" || character == "_" || character == "."
+        }
+        return parts
+            .map(String.init)
+            .filter { token in
+                if token.count < 2 { return false }
+                if token.hasPrefix("q") && token.count <= 4 { return false }
+                if token == "gguf" || token == "int4" || token == "f16" || token == "bf16" { return false }
+                return true
+            }
     }
 
     private struct TemplateTurn {

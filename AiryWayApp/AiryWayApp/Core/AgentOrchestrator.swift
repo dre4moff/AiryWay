@@ -33,24 +33,36 @@ struct ChatAttachmentPayload: Identifiable, Hashable {
     let name: String
     let extractedText: String
     let detail: String
+    let binaryPayload: Data?
 
     init(
         id: UUID = UUID(),
         kind: Kind,
         name: String,
         extractedText: String,
-        detail: String
+        detail: String,
+        binaryPayload: Data? = nil
     ) {
         self.id = id
         self.kind = kind
         self.name = name
         self.extractedText = extractedText
         self.detail = detail
+        self.binaryPayload = binaryPayload
+    }
+
+    static func == (lhs: ChatAttachmentPayload, rhs: ChatAttachmentPayload) -> Bool {
+        lhs.id == rhs.id
+    }
+
+    func hash(into hasher: inout Hasher) {
+        hasher.combine(id)
     }
 }
 
 @MainActor
 final class AgentOrchestrator {
+    private static let mediaMarker = "<__media__>"
     private let settingsStore: SettingsStore
 
     init(settingsStore: SettingsStore) {
@@ -63,6 +75,13 @@ final class AgentOrchestrator {
         attachments: [ChatAttachmentPayload] = [],
         onFinalToken: @escaping @Sendable (String) -> Void
     ) async throws -> AgentRunResult {
+        if attachments.contains(where: { $0.kind == .image }),
+           !settingsStore.isNativeImageInputRuntimeAvailable {
+            throw LocalLLMError.backend(
+                "Image input is not available in this runtime build. Update llama.xcframework with native multimodal support."
+            )
+        }
+
         let request = userInput.trimmingCharacters(in: .whitespacesAndNewlines)
         let preparedPrompt = buildPrompt(userInput: request, attachments: attachments)
         let modelConversation = buildConversation(
@@ -75,6 +94,7 @@ final class AgentOrchestrator {
             prompt: preparedPrompt,
             context: "",
             conversation: modelConversation,
+            attachments: attachments,
             onToken: onFinalToken
         )
         let outputText = response.text
@@ -103,7 +123,11 @@ final class AgentOrchestrator {
             return userInput
         }
 
-        let attachmentText = attachments.map { attachment in
+        let input = userInput.trimmingCharacters(in: .whitespacesAndNewlines)
+        let mediaAttachments = attachments.filter { $0.kind == .image }
+        let textAttachments = attachments.filter { $0.kind != .image }
+
+        let attachmentText = textAttachments.map { attachment in
             let cleanedText = attachment.extractedText
                 .replacingOccurrences(of: "\\s+", with: " ", options: .regularExpression)
                 .trimmingCharacters(in: .whitespacesAndNewlines)
@@ -112,11 +136,26 @@ final class AgentOrchestrator {
         }
         .joined(separator: "\n\n")
 
-        if userInput.isEmpty {
-            return attachmentText
+        let mediaMarkers = mediaAttachments
+            .map { _ in Self.mediaMarker }
+            .joined(separator: "\n")
+
+        var sections: [String] = []
+        if !input.isEmpty {
+            sections.append(input)
+        }
+        if !attachmentText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            sections.append(attachmentText)
+        }
+        if !mediaMarkers.isEmpty {
+            sections.append(mediaMarkers)
         }
 
-        return "\(userInput)\n\n\(attachmentText)"
+        if sections.isEmpty {
+            return input
+        }
+
+        return sections.joined(separator: "\n\n")
     }
 
     private func buildConversation(

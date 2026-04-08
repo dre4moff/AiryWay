@@ -178,6 +178,13 @@ final class ChatViewModel: ObservableObject {
     }
 
     func addImageAttachment(from imageData: Data, preferredName: String = "Image") async {
+        guard settingsStore?.isNativeImageInputRuntimeAvailable == true else {
+            settingsStore?.setLastErrorMessage(
+                "Image input is not available in this runtime build. Update llama.xcframework with native multimodal support."
+            )
+            return
+        }
+
         guard !imageData.isEmpty else {
             settingsStore?.setLastErrorMessage("Selected image is empty.")
             return
@@ -203,8 +210,9 @@ final class ChatViewModel: ObservableObject {
         let attachment = ChatAttachmentPayload(
             kind: .image,
             name: normalizedName,
-            extractedText: "Image attached (\(normalizedName), \(resolutionLabel), \(sizeLabel)).",
-            detail: "\(sizeLabel) • \(resolutionLabel)"
+            extractedText: "",
+            detail: "\(sizeLabel) • \(resolutionLabel)",
+            binaryPayload: imageData
         )
 
         pendingAttachments.append(attachment)

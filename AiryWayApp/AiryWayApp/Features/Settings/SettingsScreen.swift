@@ -89,6 +89,13 @@ struct SettingsScreen: View {
 
             SettingsModelCapabilitiesRow(capabilities: settingsStore.selectedModelCapabilities)
 
+            if settingsStore.selectedModelCapabilities.supportsImageInput &&
+                !settingsStore.isNativeImageInputRuntimeAvailable {
+                Label("Image runtime not enabled in this build", systemImage: "exclamationmark.triangle.fill")
+                    .font(.caption)
+                    .foregroundStyle(.orange)
+            }
+
             HStack(spacing: 10) {
                 Button("Load") {
                     Task { await settingsStore.loadSelectedModel() }

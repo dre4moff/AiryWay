@@ -150,6 +150,10 @@ final class SettingsStore: ObservableObject {
         return URL(fileURLWithPath: modelPath).lastPathComponent
     }
 
+    var effectiveSelectedModelCapabilities: ModelCapabilities {
+        effectiveCapabilities(selectedModelCapabilities)
+    }
+
     var selectedModelSizeLabel: String {
         guard let selected = installedModels.first(where: { $0.fileURL.path == modelPath }) else { return "-" }
         return selected.fileSizeLabel
@@ -166,7 +170,10 @@ final class SettingsStore: ObservableObject {
             || normalized.contains("qwen2-vl")
             || normalized.contains("qwen2.5-vl")
             || normalized.contains("gemma-4")
+            || normalized.contains("gemma_4")
             || normalized.contains("gemma4")
+            || normalized.contains("google_gemma-4")
+            || normalized.contains("google_gemma_4")
             || normalized.contains("internvl")
             || normalized.contains("moondream")
             || normalized.contains("florence")
@@ -181,6 +188,14 @@ final class SettingsStore: ObservableObject {
             supportsFileInput: true,
             supportsImageInput: supportsImage,
             supportsAudioInput: supportsAudio
+        )
+    }
+
+    func effectiveCapabilities(_ capabilities: ModelCapabilities) -> ModelCapabilities {
+        ModelCapabilities(
+            supportsFileInput: capabilities.supportsFileInput,
+            supportsImageInput: capabilities.supportsImageInput && isNativeImageInputRuntimeAvailable,
+            supportsAudioInput: capabilities.supportsAudioInput
         )
     }
 
@@ -235,6 +250,7 @@ final class SettingsStore: ObservableObject {
         prompt: String,
         context: String,
         conversation: [ChatMessage] = [],
+        attachments: [ChatAttachmentPayload] = [],
         onToken: @escaping @Sendable (String) -> Void = { _ in }
     ) async throws -> LocalModelResponse {
         if engine.loadedModelURL == nil {
@@ -251,6 +267,7 @@ final class SettingsStore: ObservableObject {
                 prompt: prompt,
                 context: context,
                 conversation: conversation,
+                attachments: attachments,
                 maxOutputTokens: nil,
                 onToken: onToken
             )
@@ -294,8 +311,13 @@ final class SettingsStore: ObservableObject {
 
         do {
             let installed = try await modelStore.importModel(from: sourceURL)
-            modelPath = installed.fileURL.path
             await refreshInstalledModels()
+            if installed.fileURL.lastPathComponent.lowercased().contains("mmproj") {
+                lastErrorMessage = "Companion mmproj imported. Now import/select the main GGUF model."
+                return
+            }
+
+            modelPath = installed.fileURL.path
             await loadSelectedModel()
             lastErrorMessage = nil
         } catch {
@@ -313,16 +335,23 @@ final class SettingsStore: ObservableObject {
             return
         }
 
-        await startDownload(from: remoteURL)
+        await startDownload(from: remoteURL, companionURL: nil)
     }
 
-    func downloadModel(from remoteURL: URL) async {
+    func downloadModel(from remoteURL: URL, companionURL: URL? = nil) async {
         guard let scheme = remoteURL.scheme?.lowercased(),
               ["http", "https"].contains(scheme) else {
             lastErrorMessage = "Invalid URL: only HTTP(S) is supported."
             return
         }
-        await startDownload(from: remoteURL)
+        if let companionURL {
+            guard let companionScheme = companionURL.scheme?.lowercased(),
+                  ["http", "https"].contains(companionScheme) else {
+                lastErrorMessage = "Invalid companion URL: only HTTP(S) is supported."
+                return
+            }
+        }
+        await startDownload(from: remoteURL, companionURL: companionURL)
     }
 
     func cancelModelDownload() {
@@ -403,8 +432,9 @@ final class SettingsStore: ObservableObject {
             .filter { !$0.isEmpty }
     }
 
-    private func startDownload(from remoteURL: URL) async {
+    private func startDownload(from remoteURL: URL, companionURL: URL?) async {
         var attemptedDestination: URL?
+        var attemptedCompanionDestination: URL?
         do {
             isDownloadingModel = true
             activeModelDownloadURL = remoteURL
@@ -419,14 +449,36 @@ final class SettingsStore: ObservableObject {
             )
             attemptedDestination = destination
 
-            if let expectedBytes = remoteInfo.expectedSizeBytes {
-                let requiredBytes = expectedBytes + 1_073_741_824 // model + 1 GB safety margin
+            let companionInfo: RemoteModelFileInfo?
+            let companionDestination: URL?
+            if let companionURL {
+                let info = try await downloadService.fetchRemoteFileInfo(from: companionURL)
+                companionInfo = info
+                let dest = try await modelStore.destinationURL(
+                    forRemoteURL: companionURL,
+                    suggestedFileName: info.suggestedFileName
+                )
+                companionDestination = dest
+                attemptedCompanionDestination = dest
+            } else {
+                companionInfo = nil
+                companionDestination = nil
+            }
+
+            let requiredDownloadBytes =
+                (remoteInfo.expectedSizeBytes ?? 0)
+                + (companionInfo?.expectedSizeBytes ?? 0)
+            if requiredDownloadBytes > 0 {
+                let requiredBytes = requiredDownloadBytes + 1_073_741_824 // downloads + 1 GB safety margin
                 let freeBytes = availableStorageBytes()
                 if freeBytes > 0 && freeBytes < requiredBytes {
                     throw LocalLLMError.backend(
                         "Not enough free storage. Needed ~\(formatBytes(requiredBytes)), available \(formatBytes(freeBytes))."
                     )
                 }
+            }
+
+            if let expectedBytes = remoteInfo.expectedSizeBytes {
                 modelDownloadStatusText = "Downloading \(remoteInfo.suggestedFileName) (\(formatBytes(expectedBytes)))"
             } else {
                 modelDownloadStatusText = "Downloading \(remoteInfo.suggestedFileName)"
@@ -435,7 +487,7 @@ final class SettingsStore: ObservableObject {
             let downloadedURL = try await downloadService.download(from: remoteInfo.finalURL, to: destination) { [weak self] progress in
                 Task { @MainActor [weak self] in
                     guard let self else { return }
-                    modelDownloadProgress = progress
+                    modelDownloadProgress = companionInfo == nil ? progress : min(0.9, progress * 0.9)
                     modelDownloadStatusText = "Downloading \(Int(progress * 100))%"
                 }
             }
@@ -444,6 +496,22 @@ final class SettingsStore: ObservableObject {
                 at: downloadedURL,
                 expectedMinimumBytes: expectedMinimumBytes(from: remoteInfo.expectedSizeBytes)
             )
+
+            if let companionInfo, let companionDestination {
+                modelDownloadStatusText = "Downloading \(companionInfo.suggestedFileName)"
+                _ = try await downloadService.download(from: companionInfo.finalURL, to: companionDestination) { [weak self] progress in
+                    Task { @MainActor [weak self] in
+                        guard let self else { return }
+                        modelDownloadProgress = 0.9 + min(0.1, progress * 0.1)
+                        modelDownloadStatusText = "Downloading companion \(Int(progress * 100))%"
+                    }
+                }
+                _ = try await modelStore.validateInstalledModel(
+                    at: companionDestination,
+                    expectedMinimumBytes: expectedMinimumBytes(from: companionInfo.expectedSizeBytes)
+                )
+            }
+
             modelPath = installed.fileURL.path
             modelDownloadStatusText = "Download complete"
             modelDownloadProgress = 1
@@ -452,6 +520,9 @@ final class SettingsStore: ObservableObject {
         } catch {
             if let attemptedDestination {
                 try? await modelStore.deleteModel(at: attemptedDestination)
+            }
+            if let attemptedCompanionDestination {
+                try? await modelStore.deleteModel(at: attemptedCompanionDestination)
             }
             modelDownloadStatusText = "Download failed"
             lastErrorMessage = error.localizedDescription
@@ -575,7 +646,7 @@ actor ModelFileStore {
         var models: [InstalledModel] = []
         models.reserveCapacity(files.count)
 
-        for file in files where file.pathExtension.lowercased() == "gguf" {
+        for file in files where file.pathExtension.lowercased() == "gguf" && !isMMProjFileName(file.lastPathComponent) {
             if let model = try? validateInstalledModel(at: file) {
                 models.append(model)
             }
@@ -616,6 +687,11 @@ actor ModelFileStore {
         }
 
         return candidate
+    }
+
+    private func isMMProjFileName(_ fileName: String) -> Bool {
+        let normalized = fileName.lowercased()
+        return normalized.contains("mmproj")
     }
 }
 

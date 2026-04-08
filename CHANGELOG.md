@@ -2,6 +2,29 @@
 
 Tutte le modifiche rilevanti del progetto sono documentate qui.
 
+## 0.0.3 - 2026-04-08
+
+### Added
+- Integrazione multimodale nativa `mtmd` nel runtime `llama.xcframework`: gli allegati immagine vengono passati come payload binario al modello, senza OCR/fallback testuale.
+- Pipeline vision con sidecar `mmproj`: risoluzione automatica lato runtime e errore esplicito quando il companion manca.
+- Download automatico del companion `mmproj` dalla schermata Models quando disponibile nel catalogo Hugging Face.
+- Nuovo script `scripts/build_llama_multimodal_xcframework.sh` per ricostruire localmente lo `xcframework` con supporto multimodale.
+
+### Changed
+- Rimossa la toolbar di chiusura tastiera sopra il composer chat per eliminare la sovrapposizione con il tasto invio.
+- Versione app aggiornata a `0.0.3`.
+- I file `mmproj` non vengono più mostrati come “modelli installati” selezionabili in chat.
+- Catalogo modelli esteso con metadati companion (`mmproj`) e badge dedicati nelle card.
+- Tooling release aggiornato: script base `release_with_unsigned_ipa.sh` + wrapper versionato `release_0_0_3_with_unsigned_ipa.sh` per push/tag/release + upload IPA unsigned.
+
+### Fixed
+- Upload immagine ora bloccato quando il runtime `llama.xcframework` non espone API multimodali native: evita risposte fuorvianti o “inventate”.
+- Aggiunto controllo lato orchestrator per impedire richieste con immagini su runtime non compatibile.
+- Schermata Models aggiornata con warning esplicito sullo stato del vision runtime (capability modello vs supporto runtime reale).
+- Capabilities in Models/Settings ora mostrano supporto immagini reale (`modello` + integrazione runtime effettiva), non solo inferenza da nome modello.
+- Ripristinata visualizzazione capability immagini a livello modello nelle card; stato runtime mostrato separatamente con warning.
+- Risolto il caso Gemma/LLaVA in cui il modello “fingeva” descrizioni: ora l’immagine arriva davvero al modello (con `mmproj` presente).
+
 ## 0.0.2 - 2026-04-08
 
 ### Added

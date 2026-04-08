@@ -30,6 +30,14 @@ struct ModelHubScreen: View {
                             )
                         }
 
+                        if !settingsStore.isNativeImageInputRuntimeAvailable {
+                            HubSectionHeader(title: "Vision runtime") {
+                                WarningStateCard(
+                                    message: "Native multimodal image runtime is not enabled in this build. Image badges show model capability; image input in chat remains disabled until runtime support is integrated."
+                                )
+                            }
+                        }
+
                         HubSectionHeader(title: "Installed models", subtitle: "Ready to use now") {
                             if installedModelsSorted.isEmpty {
                                 EmptyStateCard(message: "No installed models yet.")
@@ -39,6 +47,7 @@ struct ModelHubScreen: View {
                                         model: installed,
                                         selectedModelPath: settingsStore.modelPath,
                                         capabilities: installedCapabilities(for: installed),
+                                        isImageRuntimeAvailable: settingsStore.isNativeImageInputRuntimeAvailable,
                                         useAction: {
                                             Task { await settingsStore.useModel(installed) }
                                         },
@@ -71,12 +80,19 @@ struct ModelHubScreen: View {
 
                                     ModelCard(
                                         model: model,
+                                        capabilities: model.capabilities,
+                                        isImageRuntimeAvailable: settingsStore.isNativeImageInputRuntimeAvailable,
                                         compatibility: deviceProfile.compatibility(for: model),
                                         isDownloadingThisModel: isDownloadingThisModel,
                                         downloadProgress: settingsStore.modelDownloadProgress,
                                         downloadStatusText: settingsStore.modelDownloadStatusText,
                                         downloadAction: {
-                                            Task { await settingsStore.downloadModel(from: model.downloadURL) }
+                                            Task {
+                                                await settingsStore.downloadModel(
+                                                    from: model.downloadURL,
+                                                    companionURL: model.mmprojURL
+                                                )
+                                            }
                                         },
                                         cancelDownloadAction: {
                                             settingsStore.cancelModelDownload()
@@ -344,8 +360,36 @@ private struct ErrorStateCard: View {
     }
 }
 
+private struct WarningStateCard: View {
+    let message: String
+
+    var body: some View {
+        HStack(alignment: .top, spacing: 8) {
+            Image(systemName: "exclamationmark.triangle.fill")
+                .foregroundStyle(.orange)
+                .padding(.top, 1)
+            Text(message)
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(14)
+        .background(
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .fill(Color.orange.opacity(0.10))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 16, style: .continuous)
+                        .strokeBorder(Color.orange.opacity(0.24))
+                )
+        )
+    }
+}
+
 private struct ModelCard: View {
     let model: DownloadableModel
+    let capabilities: ModelCapabilities
+    let isImageRuntimeAvailable: Bool
     let compatibility: ModelCompatibility
     let isDownloadingThisModel: Bool
     let downloadProgress: Double
@@ -373,7 +417,30 @@ private struct ModelCard: View {
                 .font(.caption)
                 .foregroundStyle(.secondary)
 
-            ModelCapabilitiesRow(capabilities: model.capabilities)
+            ModelCapabilitiesRow(capabilities: capabilities)
+
+            if capabilities.supportsImageInput {
+                if model.mmprojURL != nil {
+                    Label(
+                        model.mmprojFileSizeBytes.map {
+                            "Includes mmproj (\(ByteCountFormatter.string(fromByteCount: $0, countStyle: .file)))"
+                        } ?? "Includes mmproj sidecar",
+                        systemImage: "camera.metering.matrix"
+                    )
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                } else {
+                    Label("No mmproj found in repository metadata", systemImage: "exclamationmark.triangle.fill")
+                        .font(.caption)
+                        .foregroundStyle(.orange)
+                }
+            }
+
+            if capabilities.supportsImageInput && !isImageRuntimeAvailable {
+                Label("Image runtime not enabled in this build", systemImage: "exclamationmark.triangle.fill")
+                    .font(.caption)
+                    .foregroundStyle(.orange)
+            }
 
             switch compatibility {
             case .compatible:
@@ -420,6 +487,7 @@ private struct InstalledModelCard: View {
     let model: InstalledModel
     let selectedModelPath: String
     let capabilities: ModelCapabilities
+    let isImageRuntimeAvailable: Bool
     let useAction: () -> Void
     let deleteAction: () -> Void
 
@@ -442,6 +510,12 @@ private struct InstalledModelCard: View {
                 .foregroundStyle(.secondary)
 
             ModelCapabilitiesRow(capabilities: capabilities)
+
+            if capabilities.supportsImageInput && !isImageRuntimeAvailable {
+                Label("Image runtime not enabled in this build", systemImage: "exclamationmark.triangle.fill")
+                    .font(.caption)
+                    .foregroundStyle(.orange)
+            }
 
             HStack(spacing: 8) {
                 Button(isSelected ? "Selected" : "Use") {
@@ -579,6 +653,8 @@ private struct DownloadableModel: Identifiable {
     let fileSizeBytes: Int64
     let minRAMGB: Double
     let downloadURL: URL
+    let mmprojURL: URL?
+    let mmprojFileSizeBytes: Int64?
     let capabilities: ModelCapabilities
 
     var sizeLabel: String {
@@ -725,6 +801,11 @@ private final class RemoteModelCatalogService {
         guard let downloadURL = downloadURL(repositoryID: seed.repositoryID, fileName: selected.rfilename) else {
             throw ModelCatalogError.invalidSeed(seed.name)
         }
+        let companion = resolveMMProjCompanion(
+            repositoryID: seed.repositoryID,
+            siblings: siblings,
+            selectedFileName: selected.rfilename
+        )
 
         return DownloadableModel(
             id: "\(seed.repositoryID)#\(selected.rfilename)",
@@ -735,6 +816,8 @@ private final class RemoteModelCatalogService {
             fileSizeBytes: fileSize,
             minRAMGB: seed.minRAMGB,
             downloadURL: downloadURL,
+            mmprojURL: companion?.url,
+            mmprojFileSizeBytes: companion?.sizeBytes,
             capabilities: resolvedCapabilities(seed: seed, payload: payload, selectedFileName: selected.rfilename)
         )
     }
@@ -762,7 +845,12 @@ private final class RemoteModelCatalogService {
         if tags.contains(where: { $0.contains("image-text-to-text") || $0.contains("vision") || $0.contains("multimodal") }) {
             supportsImage = true
         }
-        if fileName.contains("gemma-4") || fileName.contains("gemma4") || fileName.contains("vl") {
+        if fileName.contains("gemma-4")
+            || fileName.contains("gemma_4")
+            || fileName.contains("gemma4")
+            || fileName.contains("google_gemma-4")
+            || fileName.contains("google_gemma_4")
+            || fileName.contains("vl") {
             supportsImage = true
         }
 
@@ -779,6 +867,60 @@ private final class RemoteModelCatalogService {
             supportsImageInput: supportsImage,
             supportsAudioInput: supportsAudio
         )
+    }
+
+    private struct ModelCompanionFile {
+        let url: URL
+        let sizeBytes: Int64?
+    }
+
+    private static func resolveMMProjCompanion(
+        repositoryID: String,
+        siblings: [HFSibling],
+        selectedFileName: String
+    ) -> ModelCompanionFile? {
+        let candidates = siblings.filter { sibling in
+            let lower = sibling.rfilename.lowercased()
+            return lower.hasSuffix(".gguf") && lower.contains("mmproj")
+        }
+        guard !candidates.isEmpty else { return nil }
+
+        let modelStem = (selectedFileName as NSString).deletingPathExtension.lowercased()
+        let familyTokens = Set(
+            modelStem
+                .split(whereSeparator: { $0 == "-" || $0 == "_" || $0 == "." })
+                .map(String.init)
+                .filter { $0.count > 2 }
+        )
+
+        let ranked = candidates
+            .compactMap { sibling -> (HFSibling, Int, Bool)? in
+                guard downloadURL(repositoryID: repositoryID, fileName: sibling.rfilename) != nil else {
+                    return nil
+                }
+                let stem = (sibling.rfilename as NSString).deletingPathExtension.lowercased()
+                let score = familyTokens.reduce(0) { result, token in
+                    result + (stem.contains(token) ? 1 : 0)
+                }
+                let prefersF16 = stem.contains("f16")
+                return (sibling, score, prefersF16)
+            }
+            .sorted { lhs, rhs in
+                if lhs.1 == rhs.1 {
+                    if lhs.2 == rhs.2 {
+                        return lhs.0.rfilename.localizedCaseInsensitiveCompare(rhs.0.rfilename) == .orderedAscending
+                    }
+                    return lhs.2 && !rhs.2
+                }
+                return lhs.1 > rhs.1
+            }
+
+        guard let best = ranked.first else { return nil }
+        guard let companionURL = downloadURL(repositoryID: repositoryID, fileName: best.0.rfilename) else {
+            return nil
+        }
+        let companionSize = best.0.size ?? best.0.lfs?.size
+        return ModelCompanionFile(url: companionURL, sizeBytes: companionSize)
     }
 
     private static func modelAPIURL(for repositoryID: String) -> URL? {
