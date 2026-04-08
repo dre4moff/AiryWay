@@ -24,24 +24,24 @@
 		A014 /* ChatViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = F014 /* ChatViewModel.swift */; };
 		A015 /* ChatScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = F015 /* ChatScreen.swift */; };
 		A016 /* SettingsStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = F016 /* SettingsStore.swift */; };
-			A017 /* SettingsScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = F017 /* SettingsScreen.swift */; };
-			A018 /* llama/build-apple/llama.xcframework in Frameworks */ = {isa = PBXBuildFile; fileRef = F021 /* llama/build-apple/llama.xcframework */; };
-			A019 /* ChatConversation.swift in Sources */ = {isa = PBXBuildFile; fileRef = F022 /* ChatConversation.swift */; };
-			A020 /* llama/build-apple/llama.xcframework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = F021 /* llama/build-apple/llama.xcframework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
+		A017 /* SettingsScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = F017 /* SettingsScreen.swift */; };
+		A018 /* llama/build-apple/llama.xcframework in Frameworks */ = {isa = PBXBuildFile; fileRef = F021 /* llama/build-apple/llama.xcframework */; };
+		A019 /* ChatConversation.swift in Sources */ = {isa = PBXBuildFile; fileRef = F022 /* ChatConversation.swift */; };
+		A020 /* llama/build-apple/llama.xcframework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = F021 /* llama/build-apple/llama.xcframework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
 /* End PBXBuildFile section */
 
 /* Begin PBXCopyFilesBuildPhase section */
-			B004 /* Embed Frameworks */ = {
-				isa = PBXCopyFilesBuildPhase;
-				buildActionMask = 2147483647;
-				dstPath = "";
-				dstSubfolderSpec = 10;
-				files = (
-					A020 /* llama/build-apple/llama.xcframework in Embed Frameworks */,
-				);
-				name = "Embed Frameworks";
-				runOnlyForDeploymentPostprocessing = 0;
-			};
+		B004 /* Embed Frameworks */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 10;
+			files = (
+				A020 /* llama/build-apple/llama.xcframework in Embed Frameworks */,
+			);
+			name = "Embed Frameworks";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
@@ -220,15 +220,15 @@
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
-			T001 /* LocalWebPilot */ = {
-				isa = PBXNativeTarget;
-				buildConfigurationList = C002 /* Build configuration list for PBXNativeTarget "LocalWebPilot" */;
-				buildPhases = (
-					B002 /* Resources */,
-					B001 /* Frameworks */,
-					B004 /* Embed Frameworks */,
-					B003 /* Sources */,
-				);
+		T001 /* LocalWebPilot */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = C002 /* Build configuration list for PBXNativeTarget "LocalWebPilot" */;
+			buildPhases = (
+				B002 /* Resources */,
+				B001 /* Frameworks */,
+				B004 /* Embed Frameworks */,
+				B003 /* Sources */,
+			);
 			buildRules = (
 			);
 			dependencies = (
