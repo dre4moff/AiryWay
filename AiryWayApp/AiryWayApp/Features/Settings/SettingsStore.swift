@@ -165,6 +165,8 @@ final class SettingsStore: ObservableObject {
             || normalized.contains("vision")
             || normalized.contains("qwen2-vl")
             || normalized.contains("qwen2.5-vl")
+            || normalized.contains("gemma-4")
+            || normalized.contains("gemma4")
             || normalized.contains("internvl")
             || normalized.contains("moondream")
             || normalized.contains("florence")

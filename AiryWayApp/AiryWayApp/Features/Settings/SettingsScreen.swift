@@ -11,7 +11,7 @@ struct SettingsScreen: View {
                 .ignoresSafeArea()
 
                 ScrollView {
-                    VStack(spacing: 14) {
+                    VStack(spacing: 18) {
                         localModelCard
                         appearanceCard
                         generationCard
@@ -20,10 +20,13 @@ struct SettingsScreen: View {
                             errorCard(error)
                         }
                     }
-                    .padding(14)
+                    .padding(.horizontal, 16)
+                    .padding(.top, 10)
+                    .padding(.bottom, 24)
                 }
             }
             .navigationTitle("Settings")
+            .navigationBarTitleDisplayMode(.large)
         }
     }
 
@@ -98,8 +101,9 @@ struct SettingsScreen: View {
                 .buttonStyle(.bordered)
             }
         }
-        .padding(14)
-        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+        .padding(16)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(surfaceCard)
     }
 
     private var generationCard: some View {
@@ -117,8 +121,9 @@ struct SettingsScreen: View {
                 .font(.caption)
                 .foregroundStyle(.secondary)
         }
-        .padding(14)
-        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+        .padding(16)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(surfaceCard)
     }
 
     private var appearanceCard: some View {
@@ -137,8 +142,9 @@ struct SettingsScreen: View {
                 .font(.caption)
                 .foregroundStyle(.secondary)
         }
-        .padding(14)
-        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+        .padding(16)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(surfaceCard)
     }
 
     private func errorCard(_ message: String) -> some View {
@@ -151,7 +157,14 @@ struct SettingsScreen: View {
         }
         .padding(14)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+        .background(
+            RoundedRectangle(cornerRadius: 18, style: .continuous)
+                .fill(Color.red.opacity(0.10))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 18, style: .continuous)
+                        .strokeBorder(Color.red.opacity(0.28))
+                )
+        )
     }
 
     private func infoRow(_ label: String, _ value: String) -> some View {
@@ -163,6 +176,16 @@ struct SettingsScreen: View {
                 .multilineTextAlignment(.trailing)
         }
         .font(.subheadline)
+    }
+
+    private var surfaceCard: some View {
+        RoundedRectangle(cornerRadius: 18, style: .continuous)
+            .fill(.ultraThinMaterial)
+            .overlay(
+                RoundedRectangle(cornerRadius: 18, style: .continuous)
+                    .strokeBorder(Color.white.opacity(colorScheme == .dark ? 0.10 : 0.34))
+            )
+            .shadow(color: .black.opacity(0.06), radius: 8, y: 3)
     }
 }
 

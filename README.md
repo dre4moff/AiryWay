@@ -38,6 +38,23 @@ xcodebuild -project AiryWayApp/AiryWayApp.xcodeproj \
 
 Then package `Payload/AiryWay.app` into `.ipa`.
 
+Unsigned IPA output used for releases:
+- `build_unsigned_ipa/AiryWay-v0.0.2-unsigned.ipa`
+- `build_unsigned_ipa/AiryWay-unsigned.ipa` (legacy name)
+
+## GitHub Release Script
+After generating the unsigned IPA:
+
+```bash
+export GITHUB_TOKEN="YOUR_TOKEN"
+./scripts/release_0_0_2_with_unsigned_ipa.sh
+```
+
+The script syncs `main`, updates tag/release `0.0.2`, and uploads the unsigned IPA asset.
+
+## Changelog
+Patch notes are tracked in [CHANGELOG.md](./CHANGELOG.md).
+
 ## License
 MIT. See [LICENSE](./LICENSE).
 

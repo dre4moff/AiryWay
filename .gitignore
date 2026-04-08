@@ -1,4 +1,5 @@
 .DS_Store
+.build/
 build_unsigned_ipa/
 AiryWayApp/build/
 AiryWayApp/DerivedData/

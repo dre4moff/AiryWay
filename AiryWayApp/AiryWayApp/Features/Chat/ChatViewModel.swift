@@ -178,9 +178,37 @@ final class ChatViewModel: ObservableObject {
     }
 
     func addImageAttachment(from imageData: Data, preferredName: String = "Image") async {
-        _ = imageData
-        _ = preferredName
-        settingsStore?.setLastErrorMessage("Native image input is not available in this runtime build.")
+        guard !imageData.isEmpty else {
+            settingsStore?.setLastErrorMessage("Selected image is empty.")
+            return
+        }
+
+        let sizeLabel = ByteCountFormatter.string(fromByteCount: Int64(imageData.count), countStyle: .file)
+        let uiImage = UIImage(data: imageData)
+        let resolutionLabel: String
+        if let uiImage {
+            let width = Int(uiImage.size.width.rounded())
+            let height = Int(uiImage.size.height.rounded())
+            resolutionLabel = "\(width)x\(height)"
+        } else {
+            resolutionLabel = "unknown resolution"
+        }
+
+        let normalizedName: String = {
+            let trimmed = preferredName.trimmingCharacters(in: .whitespacesAndNewlines)
+            if trimmed.isEmpty { return "Image" }
+            return trimmed
+        }()
+
+        let attachment = ChatAttachmentPayload(
+            kind: .image,
+            name: normalizedName,
+            extractedText: "Image attached (\(normalizedName), \(resolutionLabel), \(sizeLabel)).",
+            detail: "\(sizeLabel) • \(resolutionLabel)"
+        )
+
+        pendingAttachments.append(attachment)
+        settingsStore?.setLastErrorMessage(nil)
     }
 
     func addAudioAttachment(fileURL: URL, duration: TimeInterval) {

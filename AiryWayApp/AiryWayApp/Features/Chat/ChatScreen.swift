@@ -14,6 +14,7 @@ struct ChatScreen: View {
     @State private var isPhotoPickerPresented = false
     @State private var selectedPhotoItem: PhotosPickerItem?
     @State private var isAudioRecorderPresented = false
+    @FocusState private var isComposerFocused: Bool
 
     var body: some View {
         NavigationStack {
@@ -28,7 +29,7 @@ struct ChatScreen: View {
                     Color.black.opacity(0.16)
                         .ignoresSafeArea()
                         .onTapGesture {
-                            withAnimation(.easeInOut(duration: 0.2)) {
+                            withAnimation(.snappy(duration: 0.26, extraBounce: 0.02)) {
                                 isSidebarPresented = false
                             }
                         }
@@ -42,7 +43,7 @@ struct ChatScreen: View {
                         },
                         onSelectConversation: { id in
                             chatViewModel.selectConversation(id)
-                            withAnimation(.easeInOut(duration: 0.2)) {
+                            withAnimation(.snappy(duration: 0.26, extraBounce: 0.02)) {
                                 isSidebarPresented = false
                             }
                         },
@@ -51,13 +52,13 @@ struct ChatScreen: View {
                         }
                     )
                     .frame(width: min(UIScreen.main.bounds.width * 0.84, 340))
-                    .transition(.move(edge: .leading))
+                    .transition(.move(edge: .leading).combined(with: .opacity))
                 }
             }
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
                     Button {
-                        withAnimation(.easeInOut(duration: 0.2)) {
+                        withAnimation(.snappy(duration: 0.26, extraBounce: 0.02)) {
                             isSidebarPresented.toggle()
                         }
                     } label: {
@@ -72,6 +73,15 @@ struct ChatScreen: View {
                         Image(systemName: "ladybug")
                     }
                     .disabled(chatViewModel.debugItems.isEmpty)
+                }
+
+                ToolbarItemGroup(placement: .keyboard) {
+                    Spacer()
+                    Button {
+                        dismissKeyboard()
+                    } label: {
+                        Label("Done", systemImage: "keyboard.chevron.compact.down")
+                    }
                 }
             }
             .sheet(isPresented: $isDebugPresented) {
@@ -105,6 +115,9 @@ struct ChatScreen: View {
                     selectedPhotoItem = nil
                 }
             }
+            .onTapGesture {
+                dismissKeyboard()
+            }
             .simultaneousGesture(sidebarGesture)
         }
     }
@@ -134,7 +147,7 @@ struct ChatScreen: View {
     }
 
     private var chatContent: some View {
-        VStack(spacing: 14) {
+        VStack(spacing: 12) {
             statusBanner
 
             ScrollViewReader { proxy in
@@ -143,14 +156,16 @@ struct ChatScreen: View {
                         ForEach(chatViewModel.messages) { message in
                             ChatBubble(message: message)
                                 .id(message.id)
+                                .transition(.asymmetric(insertion: .move(edge: .bottom).combined(with: .opacity), removal: .opacity))
                         }
                     }
                     .padding(.vertical, 8)
                     .padding(.horizontal, 2)
                 }
+                .scrollDismissesKeyboard(.interactively)
                 .onChange(of: chatViewModel.messages.count) {
                     if let last = chatViewModel.messages.last?.id {
-                        withAnimation {
+                        withAnimation(.smooth(duration: 0.22)) {
                             proxy.scrollTo(last, anchor: .bottom)
                         }
                     }
@@ -159,7 +174,7 @@ struct ChatScreen: View {
 
             composerBar
         }
-        .padding(.horizontal, 14)
+        .padding(.horizontal, 16)
         .padding(.bottom, 10)
     }
 
@@ -168,6 +183,13 @@ struct ChatScreen: View {
             Circle()
                 .fill(modelStateColor)
                 .frame(width: 10, height: 10)
+                .scaleEffect(chatViewModel.isGenerating ? 1.16 : 1.0)
+                .animation(
+                    chatViewModel.isGenerating
+                    ? .easeInOut(duration: 0.8).repeatForever(autoreverses: true)
+                    : .easeInOut(duration: 0.2),
+                    value: chatViewModel.isGenerating
+                )
 
             VStack(alignment: .leading, spacing: 2) {
                 Text("\(settingsStore.selectedModelName)")
@@ -181,6 +203,15 @@ struct ChatScreen: View {
             Spacer()
 
             if chatViewModel.isGenerating {
+                HStack(spacing: 6) {
+                    ProgressView()
+                        .controlSize(.small)
+                    Text("Generating...")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(.secondary)
+                }
+                .transition(.opacity.combined(with: .move(edge: .trailing)))
+
                 Button("Stop") {
                     chatViewModel.stopGeneration()
                 }
@@ -188,15 +219,20 @@ struct ChatScreen: View {
             }
         }
         .padding(12)
-        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 20, style: .continuous)
+                .strokeBorder(Color.white.opacity(colorScheme == .dark ? 0.10 : 0.36))
+        )
+        .shadow(color: .black.opacity(0.06), radius: 8, y: 3)
+        .animation(.smooth(duration: 0.22), value: chatViewModel.isGenerating)
     }
 
     private var composerBar: some View {
         let capabilities = settingsStore.selectedModelCapabilities
-        let canUseImageInput = capabilities.supportsImageInput && settingsStore.isNativeImageInputRuntimeAvailable
         let hasText = !chatViewModel.inputText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
         let hasAttachments = !chatViewModel.pendingAttachments.isEmpty
-        let actionButtonSize: CGFloat = 38
+        let actionButtonSize: CGFloat = 40
         let isSendDisabled = chatViewModel.isGenerating || (!hasText && !hasAttachments)
 
         return VStack(alignment: .leading, spacing: 10) {
@@ -217,6 +253,7 @@ struct ChatScreen: View {
                 Menu {
                     if capabilities.supportsFileInput {
                         Button {
+                            dismissKeyboard()
                             isFileImporterPresented = true
                         } label: {
                             Label("Carica file", systemImage: "doc.badge.plus")
@@ -229,18 +266,13 @@ struct ChatScreen: View {
                         .disabled(true)
                     }
 
-                    if canUseImageInput {
+                    if capabilities.supportsImageInput {
                         Button {
+                            dismissKeyboard()
                             isPhotoPickerPresented = true
                         } label: {
                             Label("Carica immagine", systemImage: "photo.on.rectangle")
                         }
-                    } else if capabilities.supportsImageInput {
-                        Button {
-                        } label: {
-                            Label("Carica immagine (Runtime non disponibile)", systemImage: "photo")
-                        }
-                        .disabled(true)
                     } else {
                         Button {
                         } label: {
@@ -251,6 +283,7 @@ struct ChatScreen: View {
 
                     if capabilities.supportsAudioInput {
                         Button {
+                            dismissKeyboard()
                             isAudioRecorderPresented = true
                         } label: {
                             Label("Registra audio", systemImage: "waveform.badge.plus")
@@ -278,8 +311,16 @@ struct ChatScreen: View {
                 TextField("Ask AiryWay", text: $chatViewModel.inputText, axis: .vertical)
                     .textFieldStyle(.plain)
                     .lineLimit(1...5)
+                    .submitLabel(.send)
+                    .focused($isComposerFocused)
+                    .onSubmit {
+                        if !isSendDisabled {
+                            dismissKeyboard()
+                            chatViewModel.send()
+                        }
+                    }
                     .padding(.horizontal, 14)
-                    .padding(.vertical, 10)
+                    .padding(.vertical, 9)
                     .frame(minHeight: actionButtonSize, alignment: .center)
                     .background(
                         RoundedRectangle(cornerRadius: actionButtonSize / 2, style: .continuous)
@@ -287,6 +328,7 @@ struct ChatScreen: View {
                     )
 
                 Button {
+                    dismissKeyboard()
                     chatViewModel.send()
                 } label: {
                     Circle()
@@ -311,8 +353,13 @@ struct ChatScreen: View {
             }
             .frame(minHeight: actionButtonSize, alignment: .center)
         }
-        .padding(12)
-        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 22, style: .continuous))
+        .padding(8)
+        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 24, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 24, style: .continuous)
+                .strokeBorder(Color.white.opacity(colorScheme == .dark ? 0.08 : 0.32))
+        )
+        .shadow(color: .black.opacity(0.06), radius: 8, y: 2)
     }
 
     private var sidebarGesture: some Gesture {
@@ -345,6 +392,11 @@ struct ChatScreen: View {
         case .generating: return .blue
         case .error: return .red
         }
+    }
+
+    private func dismissKeyboard() {
+        isComposerFocused = false
+        UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
     }
 }
 
@@ -479,7 +531,7 @@ private struct ChatBubble: View {
     let message: ChatMessage
 
     var body: some View {
-        HStack {
+        HStack(spacing: 0) {
             if message.role == .user { Spacer(minLength: 40) }
             VStack(alignment: .leading, spacing: 6) {
                 Text(label)
@@ -489,9 +541,11 @@ private struct ChatBubble: View {
                     .textSelection(.enabled)
             }
             .padding(12)
+            .frame(maxWidth: min(UIScreen.main.bounds.width * 0.78, 560), alignment: .leading)
             .background(bubbleStyle)
             if message.role != .user { Spacer(minLength: 40) }
         }
+        .frame(maxWidth: .infinity, alignment: message.role == .user ? .trailing : .leading)
     }
 
     private var label: String {
@@ -505,6 +559,10 @@ private struct ChatBubble: View {
     private var bubbleStyle: some View {
         RoundedRectangle(cornerRadius: 16, style: .continuous)
             .fill(bubbleColor)
+            .overlay(
+                RoundedRectangle(cornerRadius: 16, style: .continuous)
+                    .strokeBorder(Color.white.opacity(0.06))
+            )
     }
 
     private var formattedText: AttributedString {

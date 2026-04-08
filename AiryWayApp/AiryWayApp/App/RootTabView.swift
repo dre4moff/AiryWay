@@ -18,5 +18,7 @@ struct RootTabView: View {
                     Label("Settings", systemImage: "slider.horizontal.3")
                 }
         }
+        .toolbarBackground(.visible, for: .tabBar)
+        .toolbarBackground(.ultraThinMaterial, for: .tabBar)
     }
 }

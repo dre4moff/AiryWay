@@ -1,23 +1,24 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Sync full local repository state to GitHub, then publish release TAG with existing unsigned IPA.
+# Publish repository state + GitHub release with existing unsigned IPA.
 #
 # Requirements:
 #   - git, curl, jq
 #   - git auth configured for push to origin
-#   - GITHUB_TOKEN with repo write access (for release API)
+#   - GITHUB_TOKEN with repo write access
 #
 # Optional env vars:
-#   TAG=0.0.1
-#   RELEASE_NAME=0.0.1
-#   RELEASE_BODY="Initial release 0.0.1"
+#   TAG=0.0.2
+#   RELEASE_NAME=0.0.2
+#   RELEASE_BODY="..."                        # if empty, extracted from CHANGELOG.md
+#   RELEASE_NOTES_FILE=CHANGELOG.md
 #   IPA_PATH=/absolute/path/to/AiryWay-unsigned.ipa
-#   ASSET_NAME=AiryWay-unsigned.ipa
+#   ASSET_NAME=AiryWay-v0.0.2-unsigned.ipa
 #   REPO=owner/repo
 #   SOURCE_REF=main
 #   COMMIT_ALL=true
-#   SYNC_COMMIT_MESSAGE="chore: sync repository state for release 0.0.1"
+#   SYNC_COMMIT_MESSAGE="chore(release): 0.0.2"
 #   PUSH_FORCE_WITH_LEASE=true
 #   REPO_DESCRIPTION="Offline-first iOS chat app powered by local GGUF models via llama.cpp"
 
@@ -52,25 +53,50 @@ if [[ -z "$REPO" || "$REPO" != */* ]]; then
   exit 1
 fi
 
-TAG="${TAG:-0.0.1}"
+TAG="${TAG:-0.0.2}"
 RELEASE_NAME="${RELEASE_NAME:-$TAG}"
-RELEASE_BODY="${RELEASE_BODY:-Initial release $TAG}"
-IPA_PATH="${IPA_PATH:-$repo_root/build_unsigned_ipa/AiryWay-unsigned.ipa}"
-ASSET_NAME="${ASSET_NAME:-AiryWay-unsigned.ipa}"
 SOURCE_REF="${SOURCE_REF:-main}"
+RELEASE_NOTES_FILE="${RELEASE_NOTES_FILE:-$repo_root/CHANGELOG.md}"
+RELEASE_BODY="${RELEASE_BODY:-}"
 COMMIT_ALL="${COMMIT_ALL:-true}"
-SYNC_COMMIT_MESSAGE="${SYNC_COMMIT_MESSAGE:-chore: sync repository state for release $TAG}"
+SYNC_COMMIT_MESSAGE="${SYNC_COMMIT_MESSAGE:-chore(release): publish $TAG}"
 PUSH_FORCE_WITH_LEASE="${PUSH_FORCE_WITH_LEASE:-true}"
 REPO_DESCRIPTION="${REPO_DESCRIPTION:-Offline-first iOS chat app powered by local GGUF models via llama.cpp}"
+
+if [[ -z "${IPA_PATH:-}" ]]; then
+  candidate_tagged="$repo_root/build_unsigned_ipa/AiryWay-v${TAG}-unsigned.ipa"
+  candidate_legacy="$repo_root/build_unsigned_ipa/AiryWay-unsigned.ipa"
+  if [[ -f "$candidate_tagged" ]]; then
+    IPA_PATH="$candidate_tagged"
+  else
+    IPA_PATH="$candidate_legacy"
+  fi
+fi
 
 if [[ ! -f "$IPA_PATH" ]]; then
   echo "IPA not found: $IPA_PATH" >&2
   exit 1
 fi
 
+ASSET_NAME="${ASSET_NAME:-$(basename "$IPA_PATH")}" 
+
+if [[ -z "$RELEASE_BODY" && -f "$RELEASE_NOTES_FILE" ]]; then
+  RELEASE_BODY="$(awk -v tag="$TAG" '
+    BEGIN { in_section = 0 }
+    $0 ~ "^##[[:space:]]*" tag "([[:space:]]*-.*)?$" { in_section = 1; next }
+    $0 ~ "^##[[:space:]]*[0-9]+\.[0-9]+\.[0-9]+" && in_section { exit }
+    in_section { print }
+  ' "$RELEASE_NOTES_FILE" | sed '/^[[:space:]]*$/N;/^\n$/D')"
+fi
+
+if [[ -z "$RELEASE_BODY" ]]; then
+  RELEASE_BODY="Release $TAG"
+fi
+
 echo "Repository: $REPO"
 echo "Tag: $TAG (from $SOURCE_REF)"
 echo "IPA: $IPA_PATH"
+echo "Asset: $ASSET_NAME"
 
 git checkout main >/dev/null 2>&1 || git checkout -b main
 git fetch origin --tags || true
@@ -160,6 +186,19 @@ if [[ -z "$release_id" ]]; then
   fi
   release_json="$API_BODY"
   release_id="$(printf '%s' "$release_json" | jq -r '.id')"
+else
+  update_payload="$(jq -n \
+    --arg name "$RELEASE_NAME" \
+    --arg target "$SOURCE_REF" \
+    --arg body "$RELEASE_BODY" \
+    '{name:$name,target_commitish:$target,body:$body,draft:false,prerelease:false}')"
+  api_call PATCH "https://api.github.com/repos/$REPO/releases/$release_id" "$update_payload"
+  if [[ "$API_HTTP_CODE" != "200" ]]; then
+    echo "Failed to update release ($API_HTTP_CODE)." >&2
+    echo "$API_BODY" >&2
+    exit 1
+  fi
+  release_json="$API_BODY"
 fi
 
 upload_url="$(printf '%s' "$release_json" | jq -r '.upload_url' | sed 's/{?name,label}//')"
